@@ -1,11 +1,11 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Amazon EKS Cluster'
+Description: 'Amazon EKS Cluster DevSecOps'
 
 Parameters:
   ClusterName:
     Type: String
-    Default: my-eks-cluster
+    Default: eks-cluster-devsecops
   NumberOfWorkerNodes:
     Type: Number
     Default: 1
@@ -37,6 +37,7 @@ Resources:
       Path: /
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+      PermissionsBoundary: arn:aws:iam::900712978810:policy/platform-main-boundary
   EksNodeRole:
     Type: AWS::IAM::Role
     Properties: 
@@ -55,11 +56,22 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
         - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
         - "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+      PermissionsBoundary: arn:aws:iam::900712978810:policy/platform-main-boundary
+
+  ###########################################
+  ## VPC resources
+  ###########################################
+
+  ControlPlaneSecurityGroup:
+   Type: AWS::EC2::SecurityGroup
+   Properties:
+     GroupDescription: Cluster communication with worker nodes
+     VpcId: vpc-00381ee8f4100b872
 
   ###########################################
   ## Eks Cluster
   ###########################################
-
+  
   EksCluster:
     Type: AWS::EKS::Cluster
     Properties:
@@ -68,8 +80,10 @@ Resources:
       RoleArn: !GetAtt EksRole.Arn
       ResourcesVpcConfig:
         SecurityGroupIds:
-          - !ImportValue ControlPlaneSecurityGroupId
-        SubnetIds: !Split [ ',', !ImportValue PrivateSubnetIds ]
+          - !Ref ControlPlaneSecurityGroup
+        SubnetIds: 
+          - subnet-088452116464f55c7
+          - subnet-0f25f1bc3efcf7d07
 
   EksNodegroup:
     Type: AWS::EKS::Nodegroup
@@ -84,4 +98,6 @@ Resources:
           Ref: NumberOfWorkerNodes
         MaxSize:
           Ref: NumberOfWorkerNodes
-      Subnets: !Split [ ',', !ImportValue PrivateSubnetIds ]
+      Subnets: 
+        - subnet-088452116464f55c7
+        - subnet-0f25f1bc3efcf7d07
